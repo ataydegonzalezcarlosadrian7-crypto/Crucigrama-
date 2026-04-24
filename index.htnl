@@ -1,0 +1,411 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crucigrama: Electrónica</title>
+    <!-- Script Externo Solicitado -->
+    <script src="https://pl29235810.profitablecpmratenetwork.com/34/46/83/344683d6a08dfb0f61731495e8dcb990.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0f172a;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --cell-bg: #1e293b;
+        }
+
+        body {
+            font-family: 'JetBrains+Mono', monospace;
+            background-color: var(--bg-color);
+            color: #f1f5f9;
+        }
+
+        .grid-cell {
+            width: 100%;
+            aspect-ratio: 1/1;
+            background-color: var(--cell-bg);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .grid-cell.empty {
+            background-color: transparent;
+            border: none;
+            cursor: default;
+        }
+
+        .grid-cell.active-word {
+            background-color: rgba(56, 189, 248, 0.15);
+        }
+
+        .grid-cell.focused {
+            background-color: var(--accent);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--accent);
+            z-index: 10;
+        }
+
+        .grid-cell.correct {
+            color: var(--success);
+        }
+
+        .cell-number {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 0.65rem;
+            color: var(--accent);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        .clue-item {
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .clue-item.active {
+            background-color: rgba(56, 189, 248, 0.1);
+            border-left-color: var(--accent);
+        }
+
+        .clue-item.solved {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+
+        /* Ocultar input nativo pero mantener funcionalidad */
+        #hidden-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-sky-400 mb-2">ELECTRO-CROSS</h1>
+            <p class="text-slate-400">Resuelve el esquema de términos electrónicos</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+            <!-- Contenedor del Crucigrama -->
+            <div class="w-full lg:w-3/5 bg-slate-800/30 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-2xl">
+                <div id="crossword-grid" class="grid grid-cols-10 gap-1 select-none">
+                    <!-- Generado por JS -->
+                </div>
+                
+                <div class="mt-6 flex gap-4">
+                    <button id="check-btn" class="flex-1 bg-sky-600 hover:bg-sky-500 py-3 rounded-xl font-bold transition-all flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        Verificar Progreso
+                    </button>
+                    <button id="reset-btn" class="px-6 bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold transition-all">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Listado de Pistas -->
+            <div class="w-full lg:w-2/5 space-y-6">
+                <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700 h-full">
+                    <h2 class="text-xl font-bold mb-4 text-sky-300 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Pistas
+                    </h2>
+                    
+                    <div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div id="horizontal-clues">
+                            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Horizontales</h3>
+                            <div class="space-y-2" id="clues-h"></div>
+                        </div>
+                        
+                        <div id="vertical-clues" class="mt-6">
+                            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Verticales</h3>
+                            <div class="space-y-2" id="clues-v"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input oculto para móviles -->
+    <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
+
+    <!-- Modal de Victoria -->
+    <div id="win-modal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 p-8 rounded-2xl border-2 border-success max-w-sm w-full text-center">
+            <div class="text-6xl mb-4">💡</div>
+            <h2 class="text-3xl font-bold text-white mb-2">¡Circuito Cerrado!</h2>
+            <p class="text-slate-400 mb-6">Has resuelto todas las definiciones correctamente.</p>
+            <button onclick="location.reload()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all">
+                Nuevo Crucigrama
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 10;
+        // Estructura: [Palabra, Fila, Col, Dirección (H/V), Pista, Número]
+        const DATA = [
+            ["RESISTOR", 1, 1, "H", "Limita el paso de la corriente eléctrica.", 1],
+            ["DIODO", 4, 0, "H", "Permite el paso de corriente en un solo sentido.", 4],
+            ["LED", 6, 2, "H", "Diodo que emite luz al ser polarizado.", 6],
+            ["VOLTAJE", 8, 1, "H", "Diferencia de potencial entre dos puntos.", 8],
+            ["CAPACITOR", 1, 1, "V", "Almacena energía en un campo eléctrico.", 1],
+            ["CIRCUITO", 0, 3, "V", "Camino cerrado por donde fluye la corriente.", 2],
+            ["BATERIA", 1, 8, "V", "Fuente de energía química recargable o no.", 3],
+            ["TRANSISTOR", 0, 5, "V", "Semiconductor que amplifica o conmuta señales.", 5],
+            ["NODO", 6, 2, "V", "Punto de conexión entre tres o más conductores.", 7]
+        ];
+
+        let gridData = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(null));
+        let activeCell = { r: 1, c: 1 };
+        let activeDirection = "H";
+
+        function init() {
+            const gridEl = document.getElementById('crossword-grid');
+            const hClues = document.getElementById('clues-h');
+            const vClues = document.getElementById('clues-v');
+
+            // Mapear palabras al grid
+            DATA.forEach(item => {
+                const [word, r, c, dir, clue, num] = item;
+                
+                // Añadir pista a la lista
+                const clueDiv = document.createElement('div');
+                clueDiv.className = 'clue-item p-3 bg-slate-700/30 rounded text-sm';
+                clueDiv.innerHTML = `<span class="font-bold text-sky-400 mr-2">${num}.</span> ${clue}`;
+                clueDiv.id = `clue-${dir}-${num}`;
+                clueDiv.onclick = () => focusWord(r, c, dir);
+                (dir === "H" ? hClues : vClues).appendChild(clueDiv);
+
+                // Colocar letras
+                for (let i = 0; i < word.length; i++) {
+                    const row = dir === "H" ? r : r + i;
+                    const col = dir === "H" ? c + i : c;
+                    
+                    if (!gridData[row][col]) {
+                        gridData[row][col] = {
+                            char: word[i],
+                            current: '',
+                            num: i === 0 ? num : null,
+                            words: []
+                        };
+                    } else if (i === 0) {
+                        gridData[row][col].num = num;
+                    }
+                    gridData[row][col].words.push({ dir, num, startR: r, startC: c });
+                }
+            });
+
+            // Renderizar Grid
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    const data = gridData[r][c];
+                    
+                    if (data) {
+                        cell.className = 'grid-cell';
+                        cell.id = `cell-${r}-${c}`;
+                        if (data.num) {
+                            const numSpan = document.createElement('span');
+                            numSpan.className = 'cell-number';
+                            numSpan.textContent = data.num;
+                            cell.appendChild(numSpan);
+                        }
+                        const charSpan = document.createElement('span');
+                        charSpan.id = `char-${r}-${c}`;
+                        cell.appendChild(charSpan);
+                        cell.onclick = () => handleCellClick(r, c);
+                    } else {
+                        cell.className = 'grid-cell empty';
+                    }
+                    gridEl.appendChild(cell);
+                }
+            }
+
+            setupInputHandlers();
+            updateHighlight();
+        }
+
+        function handleCellClick(r, c) {
+            if (activeCell.r === r && activeCell.c === c) {
+                // Cambiar dirección si es una intersección
+                const cellData = gridData[r][c];
+                if (cellData.words.length > 1) {
+                    activeDirection = activeDirection === "H" ? "V" : "H";
+                }
+            } else {
+                activeCell = { r, c };
+                // Intentar mantener dirección o elegir la disponible
+                const cellData = gridData[r][c];
+                if (!cellData.words.some(w => w.dir === activeDirection)) {
+                    activeDirection = cellData.words[0].dir;
+                }
+            }
+            updateHighlight();
+            focusInput();
+        }
+
+        function focusWord(r, c, dir) {
+            activeCell = { r, c };
+            activeDirection = dir;
+            updateHighlight();
+            focusInput();
+        }
+
+        function focusInput() {
+            const input = document.getElementById('hidden-input');
+            input.focus();
+        }
+
+        function setupInputHandlers() {
+            const input = document.getElementById('hidden-input');
+            
+            input.addEventListener('input', (e) => {
+                const val = e.target.value.slice(-1).toUpperCase();
+                if (val && /[A-ZÑ]/.test(val)) {
+                    const data = gridData[activeCell.r][activeCell.c];
+                    if (data) {
+                        data.current = val;
+                        document.getElementById(`char-${activeCell.r}-${activeCell.c}`).textContent = val;
+                        moveNext();
+                    }
+                }
+                e.target.value = '';
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === "Backspace") {
+                    const data = gridData[activeCell.r][activeCell.c];
+                    if (data.current === '') movePrev();
+                    data.current = '';
+                    document.getElementById(`char-${activeCell.r}-${activeCell.c}`).textContent = '';
+                } else if (e.key.startsWith("Arrow")) {
+                    const dr = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
+                    const dc = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                    const newR = activeCell.r + dr;
+                    const newC = activeCell.c + dc;
+                    if (newR >= 0 && newR < GRID_SIZE && newC >= 0 && newC < GRID_SIZE && gridData[newR][newC]) {
+                        activeCell = { r: newR, c: newC };
+                        updateHighlight();
+                    }
+                }
+            });
+        }
+
+        function moveNext() {
+            const stepR = activeDirection === "V" ? 1 : 0;
+            const stepC = activeDirection === "H" ? 1 : 0;
+            const nr = activeCell.r + stepR;
+            const nc = activeCell.c + stepC;
+            if (nr < GRID_SIZE && nc < GRID_SIZE && gridData[nr][nc]) {
+                activeCell = { r: nr, c: nc };
+                updateHighlight();
+            }
+        }
+
+        function movePrev() {
+            const stepR = activeDirection === "V" ? -1 : 0;
+            const stepC = activeDirection === "H" ? -1 : 0;
+            const nr = activeCell.r + stepR;
+            const nc = activeCell.c + stepC;
+            if (nr >= 0 && nc >= 0 && gridData[nr][nc]) {
+                activeCell = { r: nr, c: nc };
+                updateHighlight();
+            }
+        }
+
+        function updateHighlight() {
+            document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('focused', 'active-word'));
+            document.querySelectorAll('.clue-item').forEach(el => el.classList.remove('active'));
+
+            const cellData = gridData[activeCell.r][activeCell.c];
+            const currentWordInfo = cellData.words.find(w => w.dir === activeDirection) || cellData.words[0];
+            activeDirection = currentWordInfo.dir;
+
+            // Iluminar palabra activa
+            const { dir, num, startR, startC } = currentWordInfo;
+            const wordStr = DATA.find(d => d[5] === num && d[3] === dir)[0];
+
+            for (let i = 0; i < wordStr.length; i++) {
+                const r = dir === "H" ? startR : startR + i;
+                const c = dir === "H" ? startC + i : startC;
+                const el = document.getElementById(`cell-${r}-${c}`);
+                if (r === activeCell.r && c === activeCell.c) {
+                    el.classList.add('focused');
+                } else {
+                    el.classList.add('active-word');
+                }
+            }
+
+            // Activar pista
+            const clueEl = document.getElementById(`clue-${dir}-${num}`);
+            if (clueEl) {
+                clueEl.classList.add('active');
+                clueEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        document.getElementById('check-btn').addEventListener('click', () => {
+            let allCorrect = true;
+            let completeCount = 0;
+
+            DATA.forEach(item => {
+                const [word, r, c, dir, clue, num] = item;
+                let wordCorrect = true;
+                
+                for (let i = 0; i < word.length; i++) {
+                    const row = dir === "H" ? r : r + i;
+                    const col = dir === "H" ? c + i : c;
+                    const data = gridData[row][col];
+                    const cellEl = document.getElementById(`cell-${row}-${col}`);
+                    
+                    if (data.current === data.char) {
+                        cellEl.classList.add('correct');
+                    } else {
+                        wordCorrect = false;
+                        allCorrect = false;
+                    }
+                }
+                
+                if (wordCorrect) {
+                    document.getElementById(`clue-${dir}-${num}`).classList.add('solved');
+                    completeCount++;
+                }
+            });
+
+            if (completeCount === DATA.length) {
+                document.getElementById('win-modal').classList.remove('hidden');
+                document.getElementById('win-modal').classList.add('flex');
+            }
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            if(confirm('¿Reiniciar el crucigrama?')) location.reload();
+        });
+
+        init();
+    </script>
+</body>
+</html>
+
+```
